@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<!-- Same policy as the Firebase header, for hosts that cannot set headers (GitHub Pages). -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self'; base-uri 'none'; form-action 'none'">
+<meta name="referrer" content="no-referrer">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<meta name="color-scheme" content="light dark">
+<title>Gelin buketi · Buketim</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600&family=Manrope:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  /* Tokens from design/design-tokens.md (Pudra Romantik). */
+  :root {
+    --primary: #94455E; --on-primary: #FFFFFF;
+    --primary-container: #FFD9E2; --on-primary-container: #3D0F1E;
+    --surface: #FFF8F9; --on-surface: #22191C;
+    --surface-container: #F7ECEF; --on-surface-variant: #524347;
+    --outline: #847377; --error: #B3261E;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --primary: #F2B3C5; --on-primary: #5A1A30;
+      --primary-container: #763047; --on-primary-container: #FFD9E2;
+      --surface: #191113; --on-surface: #EFDFE2;
+      --surface-container: #261D20; --on-surface-variant: #D5C2C6;
+      --outline: #9E8C90; --error: #F2B8B5;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--surface); color: var(--on-surface);
+    font: 400 16px/24px Manrope, system-ui, sans-serif;
+  }
+  main { max-width: 480px; margin: 0 auto; padding: 24px 20px 40px; }
+  .brand { font: 600 24px/32px Fraunces, Georgia, serif; color: var(--primary); margin: 0 0 24px; }
+  .card { background: var(--surface-container); border-radius: 20px; padding: 20px; }
+  h1 { font: 600 24px/32px Fraunces, Georgia, serif; margin: 0 0 4px; }
+  .meta { color: var(--on-surface-variant); font-size: 14px; line-height: 20px; margin: 0 0 16px; }
+  ul { list-style: none; margin: 0; padding: 0; }
+  li { display: flex; justify-content: space-between; gap: 16px; padding: 12px 0;
+       border-top: 1px solid color-mix(in srgb, var(--outline) 35%, transparent); }
+  li:first-child { border-top: 0; }
+  .name { font-weight: 600; }
+  .count { white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .note { display: block; color: var(--error); font-size: 14px; line-height: 20px; font-weight: 400; }
+  .extra { padding: 12px 0 0; color: var(--on-surface-variant); }
+  .total { margin: 16px 0 0; font-weight: 600; }
+  .cta { display: block; margin: 24px 0 0; text-align: center; padding: 14px 20px; border-radius: 999px;
+         background: var(--primary); color: var(--on-primary); text-decoration: none; font-weight: 600; }
+  .foot { margin: 16px 0 0; text-align: center; color: var(--on-surface-variant); font-size: 12px; line-height: 16px; }
+  .empty { color: var(--on-surface-variant); }
+</style>
+</head>
+<body>
+<main>
+  <p class="brand">Buketim</p>
+  <section class="card" id="card" aria-live="polite">
+    <p class="empty" id="empty">Bu bağlantıda okunabilir bir buket listesi yok. Gelinden QR kodu yeniden göstermesini isteyin.</p>
+  </section>
+  <a class="cta" id="cta" href="https://play.google.com/store/apps/details?id=com.buketim.app&amp;referrer=utm_source%3Dqr%26utm_medium%3Dbouquet_page">Buketim'i indir</a>
+  <p class="foot">Liste yalnızca bu bağlantının içinde taşınır; hiçbir sunucuya gönderilmez.</p>
+</main>
+<script>
+  // The bouquet arrives in the URL fragment as "v1.<base64url UTF-8 text>",
+  // written by the app (lib/features/qr/bouquet_qr.dart). The fragment never
+  // reaches the server. Everything is shown with textContent, never as HTML.
+  (function () {
+    var MAX = 4000;
+    var hash = location.hash.slice(1);
+    if (hash.indexOf('v1.') !== 0 || hash.length > MAX) return;
+    var text;
+    try {
+      var b64 = hash.slice(3).replace(/-/g, '+').replace(/_/g, '/');
+      while (b64.length % 4) b64 += '=';
+      var bin = atob(b64);
+      var bytes = new Uint8Array(bin.length);
+      for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      text = new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+    } catch (e) { return; }
+    var lines = text.split('\n').map(function (s) { return s.trim(); }).filter(Boolean);
+    if (lines.length < 2 || lines.length > 40) return;
+
+    var card = document.getElementById('card');
+    card.textContent = '';
+    var footer = lines[lines.length - 1];
+    var total = lines[lines.length - 2];
+    var head = lines[0];
+    var body = lines.slice(1, lines.length - 2);
+
+    var h1 = document.createElement('h1'); h1.textContent = head; card.appendChild(h1);
+    var meta = document.createElement('p'); meta.className = 'meta'; card.appendChild(meta);
+    var ul = document.createElement('ul'); card.appendChild(ul);
+    var extras = [];
+    body.forEach(function (line, i) {
+      // "Şakayık · Pudra — 5 dal (sezon dışı)"
+      var m = line.match(/^(.*) — (.+?)(?: \((.+)\))?$/);
+      if (!m) {
+        if (i === 0 && !meta.textContent) { meta.textContent = line; } else { extras.push(line); }
+        return;
+      }
+      var li = document.createElement('li');
+      var left = document.createElement('span'); left.className = 'name'; left.textContent = m[1];
+      if (m[3]) { var n = document.createElement('span'); n.className = 'note'; n.textContent = m[3]; left.appendChild(n); }
+      var right = document.createElement('span'); right.className = 'count'; right.textContent = m[2];
+      li.appendChild(left); li.appendChild(right); ul.appendChild(li);
+    });
+    if (!meta.textContent) meta.remove();
+    extras.forEach(function (line) {
+      var p = document.createElement('p'); p.className = 'extra'; p.textContent = line; card.appendChild(p);
+    });
+    var t = document.createElement('p'); t.className = 'total'; t.textContent = total; card.appendChild(t);
+    var f = document.createElement('p'); f.className = 'foot'; f.textContent = footer; card.appendChild(f);
+    document.title = head + ' · Buketim';
+  })();
+</script>
+</body>
+</html>
+
